@@ -1,7 +1,5 @@
 import './style.css'
-
-const STACK_COUNT = 15
-const MAX_CARDS = STACK_COUNT ** 2
+import { createShufflePlan, MAX_CARDS, STACK_COUNT } from './shuffle'
 
 type ShufflePhase = 'dealing' | 'round-complete' | 'complete'
 
@@ -154,70 +152,16 @@ function startAuto(): void {
   }, interval * 1000)
 }
 
-function randomBelow(limit: number): number {
-  const range = 0x1_0000_0000
-  const acceptedRange = Math.floor(range / limit) * limit
-  const value = new Uint32Array(1)
-
-  // Reject the unused tail so every pile index has the same probability.
-  do {
-    window.crypto.getRandomValues(value)
-  } while (value[0] >= acceptedRange)
-
-  return value[0] % limit
-}
-
-function generateRounds(cardCount: number): number[][] {
-  const roundCount = Math.ceil(Math.log(cardCount) / Math.log(STACK_COUNT))
-  const objective = Array.from({ length: cardCount }, (_, card) => card)
-
-  // Choose a uniformly random target order with Fisher–Yates.
-
-  for (let index = objective.length - 1; index > 0; index -= 1) {
-    const otherIndex = randomBelow(index + 1)
-    ;[objective[index], objective[otherIndex]] = [objective[otherIndex], objective[index]]
-  }
-
-  const objectivePosition = new Array<number>(cardCount)
-  objective.forEach((card, position) => {
-    objectivePosition[card] = position
-  })
-
-  const rounds: number[][] = []
-  let current = Array.from({ length: cardCount }, (_, card) => card)
-  let reverse = roundCount % 2 === 0
-
-  // Each pass sorts by the next base-15 digit of each card's target position.
-  for (let round = 0; round < roundCount; round += 1) {
-    const piles = Array.from({ length: STACK_COUNT }, () => [] as number[])
-    const instructions: number[] = []
-
-    for (const card of current) {
-      let pile = Math.floor(objectivePosition[card] / STACK_COUNT ** round) % STACK_COUNT
-      if (reverse) pile = STACK_COUNT - 1 - pile
-      instructions.push(pile)
-      // Cards are placed on top; unshift models the order they'll have after restacking.
-      piles[pile].unshift(card)
-    }
-
-    rounds.push(instructions)
-    // The user gathers pile 1 first, so this is the next round's top-to-bottom order.
-    current = piles.flat()
-    reverse = !reverse
-  }
-
-  return rounds
-}
-
 function startSession(cardCount: number): void {
   if (!window.crypto?.getRandomValues) {
     statusMessage.textContent = 'Secure random numbers are not available in this browser. Open this page over HTTPS or use a modern browser.'
     return
   }
 
+  const shufflePlan = createShufflePlan(cardCount)
   session = {
     cardCount,
-    rounds: generateRounds(cardCount),
+    rounds: shufflePlan.rounds,
     roundIndex: 0,
     cardIndex: 0,
     phase: 'dealing',
