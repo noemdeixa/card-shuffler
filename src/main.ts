@@ -67,7 +67,7 @@ app.innerHTML = `
           <button class="button button-secondary" id="undo-button" type="button">← Undo</button>
           <div class="auto-control">
             <button class="button button-secondary" id="auto-button" type="button" aria-pressed="false">▶ Auto</button>
-            <button class="button button-secondary sound-button" id="sound-button" type="button" aria-pressed="false" aria-label="Pile sounds off">♫ Notes off</button>
+            <button class="button button-secondary sound-button" id="sound-button" type="button" aria-pressed="true" aria-label="Pile sounds on">♫ Notes on</button>
             <label class="interval-control" for="auto-interval">Every
               <input id="auto-interval" type="number" min="0.3" max="10" step="0.1" value="1" required inputmode="decimal" aria-label="Auto interval in seconds">
               <span>sec</span>
@@ -119,9 +119,9 @@ for (let pile = 1; pile <= STACK_COUNT; pile += 1) {
 let session: ShuffleSession | null = null
 let autoTimer: number | undefined
 let audioContext: AudioContext | undefined
-let pileSoundsEnabled = false
+let pileSoundsEnabled = true
 
-const MAJOR_SCALE_SEMITONES = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24]
+const tones = [500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900]
 
 function setSessionView(active: boolean): void {
   document.body.classList.toggle('session-active', active)
@@ -142,24 +142,23 @@ function playPileNote(pile: number): void {
   const oscillator = audioContext.createOscillator()
   const volume = audioContext.createGain()
   const now = audioContext.currentTime
-  const semitones = MAJOR_SCALE_SEMITONES[pile]
 
   oscillator.type = 'sine'
-  oscillator.frequency.value = 261.63 * 2 ** (semitones / 12)
+  oscillator.frequency.value = tones[pile];
   volume.gain.setValueAtTime(0.0001, now)
   volume.gain.exponentialRampToValueAtTime(0.12, now + 0.015)
-  volume.gain.exponentialRampToValueAtTime(0.0001, now + 0.18)
+  volume.gain.exponentialRampToValueAtTime(0.0001, now + 0.24)
   oscillator.connect(volume)
   volume.connect(audioContext.destination)
   oscillator.start(now)
-  oscillator.stop(now + 0.19)
+  oscillator.stop(now + 0.3)
   oscillator.addEventListener('ended', () => {
     oscillator.disconnect()
     volume.disconnect()
   }, { once: true })
 }
 
-function startAuto(): void {
+async function startAuto(): Promise<void> {
   if (!session || session.phase !== 'dealing') return
 
   const interval = autoIntervalInput.valueAsNumber
@@ -167,6 +166,21 @@ function startAuto(): void {
     stopAuto()
     autoIntervalInput.reportValidity()
     return
+  }
+
+  if (pileSoundsEnabled) {
+    if (!('AudioContext' in window)) {
+      statusMessage.textContent = 'Pile sounds are not supported in this browser.'
+      return
+    }
+
+    try {
+      audioContext ??= new AudioContext()
+      await audioContext.resume()
+    } catch (error) {
+      statusMessage.textContent = `Could not enable pile sounds: ${error instanceof Error ? error.message : 'audio playback was blocked'}`
+      return
+    }
   }
 
   stopAuto()
