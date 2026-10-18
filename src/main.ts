@@ -86,12 +86,6 @@ app.innerHTML = `
   </footer>
 `
 
-const orientationPrompt = document.createElement('div')
-orientationPrompt.className = 'orientation-prompt'
-orientationPrompt.setAttribute('role', 'status')
-orientationPrompt.innerHTML = '<span class="orientation-icon" aria-hidden="true">↻</span><strong>Turn your phone sideways</strong><span>The shuffle screen is designed for landscape.</span>'
-document.body.append(orientationPrompt)
-
 const setupForm = document.querySelector<HTMLFormElement>('#setup-form')!
 const cardCountInput = document.querySelector<HTMLInputElement>('#card-count')!
 const setupPanel = document.querySelector<HTMLElement>('#setup-panel')!
@@ -108,7 +102,6 @@ const autoButton = document.querySelector<HTMLButtonElement>('#auto-button')!
 const autoIntervalInput = document.querySelector<HTMLInputElement>('#auto-interval')!
 const restartButton = document.querySelector<HTMLButtonElement>('#restart-button')!
 const statusMessage = document.querySelector<HTMLElement>('#status-message')!
-const portraitPhone = window.matchMedia('(orientation: portrait) and (max-width: 700px)')
 const pileElements: HTMLButtonElement[] = []
 const pileGrid = document.querySelector<HTMLDivElement>('#pile-grid')!
 
@@ -128,15 +121,7 @@ let autoTimer: number | undefined
 
 function setSessionView(active: boolean): void {
   document.body.classList.toggle('session-active', active)
-  sessionPanel.inert = active && portraitPhone.matches
 }
-
-function updateOrientationInert(): void {
-  sessionPanel.inert = Boolean(session && portraitPhone.matches)
-}
-
-portraitPhone.addEventListener('change', updateOrientationInert)
-window.addEventListener('resize', updateOrientationInert)
 
 function stopAuto(): void {
   if (autoTimer !== undefined) {
