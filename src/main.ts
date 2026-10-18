@@ -67,6 +67,7 @@ app.innerHTML = `
           <button class="button button-secondary" id="undo-button" type="button">← Undo</button>
           <div class="auto-control">
             <button class="button button-secondary" id="auto-button" type="button" aria-pressed="false">▶ Auto</button>
+            <button class="button button-secondary sound-button" id="sound-button" type="button" aria-pressed="false" aria-label="Pile sounds off">♫ Notes off</button>
             <label class="interval-control" for="auto-interval">Every
               <input id="auto-interval" type="number" min="0.3" max="10" step="0.1" value="1" required inputmode="decimal" aria-label="Auto interval in seconds">
               <span>sec</span>
@@ -97,6 +98,7 @@ const cardCounter = document.querySelector<HTMLElement>('#card-counter')!
 const nextButton = document.querySelector<HTMLButtonElement>('#next-button')!
 const undoButton = document.querySelector<HTMLButtonElement>('#undo-button')!
 const autoButton = document.querySelector<HTMLButtonElement>('#auto-button')!
+const soundButton = document.querySelector<HTMLButtonElement>('#sound-button')!
 const autoIntervalInput = document.querySelector<HTMLInputElement>('#auto-interval')!
 const restartButton = document.querySelector<HTMLButtonElement>('#restart-button')!
 const statusMessage = document.querySelector<HTMLElement>('#status-message')!
@@ -116,6 +118,10 @@ for (let pile = 1; pile <= STACK_COUNT; pile += 1) {
 
 let session: ShuffleSession | null = null
 let autoTimer: number | undefined
+let audioContext: AudioContext | undefined
+let pileSoundsEnabled = false
+
+const MAJOR_SCALE_SEMITONES = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24]
 
 function setSessionView(active: boolean): void {
   document.body.classList.toggle('session-active', active)
@@ -128,6 +134,29 @@ function stopAuto(): void {
   }
   autoButton.textContent = '▶ Auto'
   autoButton.setAttribute('aria-pressed', 'false')
+}
+
+function playPileNote(pile: number): void {
+  if (!pileSoundsEnabled || !audioContext || audioContext.state !== 'running') return
+
+  const oscillator = audioContext.createOscillator()
+  const volume = audioContext.createGain()
+  const now = audioContext.currentTime
+  const semitones = MAJOR_SCALE_SEMITONES[pile]
+
+  oscillator.type = 'sine'
+  oscillator.frequency.value = 261.63 * 2 ** (semitones / 12)
+  volume.gain.setValueAtTime(0.0001, now)
+  volume.gain.exponentialRampToValueAtTime(0.12, now + 0.015)
+  volume.gain.exponentialRampToValueAtTime(0.0001, now + 0.18)
+  oscillator.connect(volume)
+  volume.connect(audioContext.destination)
+  oscillator.start(now)
+  oscillator.stop(now + 0.19)
+  oscillator.addEventListener('ended', () => {
+    oscillator.disconnect()
+    volume.disconnect()
+  }, { once: true })
 }
 
 function startAuto(): void {
@@ -148,7 +177,7 @@ function startAuto(): void {
       stopAuto()
       return
     }
-    nextButton.click()
+    advanceSession(true)
   }, interval * 1000)
 }
 
@@ -225,20 +254,11 @@ function renderSession(): void {
   nextButton.disabled = false
   undoButton.hidden = isFinished
   autoButton.hidden = phase !== 'dealing'
+  soundButton.hidden = phase !== 'dealing'
   autoIntervalInput.disabled = phase !== 'dealing'
 }
 
-setupForm.addEventListener('submit', (event) => {
-  event.preventDefault()
-  if (!setupForm.reportValidity()) return
-
-  const cardCount = cardCountInput.valueAsNumber
-  if (!Number.isInteger(cardCount) || cardCount < 2 || cardCount > MAX_CARDS) return
-
-  startSession(cardCount)
-})
-
-nextButton.addEventListener('click', () => {
+function advanceSession(playSound = false): void {
   if (!session) return
 
   if (session.phase === 'dealing') {
@@ -266,7 +286,22 @@ nextButton.addEventListener('click', () => {
   }
 
   renderSession()
+  if (playSound && session?.phase === 'dealing') {
+    playPileNote(session.rounds[session.roundIndex][session.cardIndex])
+  }
+}
+
+setupForm.addEventListener('submit', (event) => {
+  event.preventDefault()
+  if (!setupForm.reportValidity()) return
+
+  const cardCount = cardCountInput.valueAsNumber
+  if (!Number.isInteger(cardCount) || cardCount < 2 || cardCount > MAX_CARDS) return
+
+  startSession(cardCount)
 })
+
+nextButton.addEventListener('click', () => advanceSession())
 
 autoButton.addEventListener('click', () => {
   if (autoTimer !== undefined) {
@@ -274,6 +309,31 @@ autoButton.addEventListener('click', () => {
   } else {
     startAuto()
   }
+})
+
+soundButton.addEventListener('click', async () => {
+  if (pileSoundsEnabled) {
+    pileSoundsEnabled = false
+  } else {
+    if (!('AudioContext' in window)) {
+      statusMessage.textContent = 'Pile sounds are not supported in this browser.'
+      return
+    }
+
+    try {
+      audioContext ??= new AudioContext()
+      await audioContext.resume()
+    } catch (error) {
+      statusMessage.textContent = `Could not enable pile sounds: ${error instanceof Error ? error.message : 'audio playback was blocked'}`
+      return
+    }
+    pileSoundsEnabled = true
+  }
+
+  soundButton.textContent = pileSoundsEnabled ? '♫ Notes on' : '♫ Notes off'
+  soundButton.setAttribute('aria-pressed', String(pileSoundsEnabled))
+  soundButton.setAttribute('aria-label', `Pile sounds ${pileSoundsEnabled ? 'on' : 'off'}`)
+  statusMessage.textContent = ''
 })
 
 autoIntervalInput.addEventListener('change', () => {

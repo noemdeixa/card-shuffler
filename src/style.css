@@ -432,6 +432,11 @@ a:focus-visible {
   grid-column: 2;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
+}
+
+.sound-button {
+  padding-inline: 9px !important;
 }
 
 #next-button {
@@ -699,6 +704,8 @@ body.session-active .pile-card-marker {
 }
 
 body.session-active .session-footer {
+  align-items: center;
+  flex-direction: row;
   min-height: 0;
   margin: 0;
 }
@@ -708,8 +715,8 @@ body.session-active .card-counter {
 }
 
 body.session-active .session-actions {
-  width: min(72%, 520px);
-  min-width: 390px;
+  width: min(78%, 520px);
+  min-width: 430px;
   grid-template-columns: 1fr auto 1fr;
   gap: 6px;
 }
@@ -725,6 +732,25 @@ body.session-active .auto-control {
   gap: 6px;
 }
 
+body.session-active #undo-button,
+body.session-active .auto-control,
+body.session-active #next-button {
+  grid-row: auto;
+}
+
+body.session-active #undo-button {
+  grid-column: 1;
+}
+
+body.session-active .auto-control {
+  grid-column: 2;
+  justify-self: initial;
+}
+
+body.session-active #next-button {
+  grid-column: 3;
+}
+
 body.session-active .interval-control input {
   width: 48px;
   height: 32px;
@@ -736,8 +762,8 @@ body.session-active .interval-control input {
   }
 
   body.session-active .session-actions {
-    width: min(78%, 520px);
-    min-width: 360px;
+    width: min(90%, 520px);
+    min-width: 430px;
   }
 
   body.session-active .session-actions .button {
@@ -756,32 +782,6 @@ body.session-active .interval-control input {
     transform-origin: top left;
   }
 
-  body.session-active .session-footer {
-    align-items: center;
-    flex-direction: row;
-  }
-
-  body.session-active .session-actions {
-    width: min(78%, 520px);
-    min-width: 360px;
-    grid-template-columns: 1fr auto 1fr;
-  }
-
-  body.session-active #undo-button {
-    grid-column: 1;
-    grid-row: auto;
-  }
-
-  body.session-active .auto-control {
-    grid-column: 2;
-    grid-row: auto;
-    justify-self: initial;
-  }
-
-  body.session-active #next-button {
-    grid-column: 3;
-    grid-row: auto;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
